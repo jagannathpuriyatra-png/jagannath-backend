@@ -92,4 +92,14 @@ app.delete('/api/registrations/:id', async (req, res) => {
 
 // Server Start
 const PORT = process.env.PORT || 5000;
+// 5. Single User data lene ke liye (Pass ke liye)
+app.get('/api/registrations/mobile/:mobile', async (req, res) => {
+  try {
+    const user = await Registration.findOne({ mobile: req.params.mobile });
+    if (!user) return res.status(404).json({ message: "User nahi mila" });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Database Error" });
+  }
+});
 app.listen(PORT, () => console.log(`Backend Server running on port ${PORT}`));

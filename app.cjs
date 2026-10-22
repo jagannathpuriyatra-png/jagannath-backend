@@ -20,7 +20,7 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected!"))
   .catch((err) => console.log("DB Error Details: ", err.message)); 
 
-// --- SCHEMA (Payment Status add kiya gaya hai) ---
+// --- SCHEMA (Payment aur Room fields add kiye gaye hain) ---
 const RegistrationSchema = new mongoose.Schema({
   name: String,
   mobile: String,
@@ -35,7 +35,9 @@ const RegistrationSchema = new mongoose.Schema({
   emergencyPhone: String,
   count: Number,
   coTravellers: Array,
-  paymentStatus: { type: String, default: "Pending" }, // Naya field yahan add hua
+  paymentStatus: { type: String, default: "Pending" },
+  roomNumber: { type: String, default: "Not Allocated" }, // Naya field for Room
+  hotelName: { type: String, default: "Not Allocated" }, // Naya field for Hotel
   createdAt: { type: Date, default: Date.now }
 });
 const Registration = mongoose.model('Registration', RegistrationSchema);
@@ -62,12 +64,12 @@ app.get('/api/registrations', async (req, res) => {
   }
 });
 
-// 3. Payment Update karne ke liye (Admin se verify karne ke liye) - NAYA ROUTE
+// 3. Payment Update karne ke liye (Admin se verify karne ke liye)
 app.put('/api/registrations/:id', async (req, res) => {
   try {
     const updatedReg = await Registration.findByIdAndUpdate(
       req.params.id, 
-      { $set: { paymentStatus: req.body.paymentStatus } }, // Sirf payment status update hoga
+      { $set: { paymentStatus: req.body.paymentStatus } },
       { new: true }
     );
     if (!updatedReg) return res.status(404).json({ message: "Registration nahi mili" });
@@ -78,7 +80,23 @@ app.put('/api/registrations/:id', async (req, res) => {
   }
 });
 
-// 4. Admin Panel se kisi data ko delete karne ke liye
+// 4. Room Allocate karne ke liye (Naya Route)
+app.put('/api/registrations/allocate/:id', async (req, res) => {
+  try {
+    const updatedReg = await Registration.findByIdAndUpdate(
+      req.params.id, 
+      { $set: { roomNumber: req.body.roomNumber, hotelName: req.body.hotelName } },
+      { new: true }
+    );
+    if (!updatedReg) return res.status(404).json({ message: "Registration nahi mili" });
+    res.json(updatedReg);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Room allocate nahi ho saka" });
+  }
+});
+
+// 5. Admin Panel se kisi data ko delete karne ke liye
 app.delete('/api/registrations/:id', async (req, res) => {
   try {
     const deletedReg = await Registration.findByIdAndDelete(req.params.id);
@@ -90,10 +108,7 @@ app.delete('/api/registrations/:id', async (req, res) => {
   }
 });
 
-// Server Start
-const PORT = process.env.PORT || 5000;
-
-// 5. Single User data lene ke liye (Pass ke liye)
+// 6. Single User data lene ke liye (Pass ke liye)
 app.get('/api/registrations/mobile/:mobile', async (req, res) => {
   try {
     const user = await Registration.findOne({ mobile: req.params.mobile });
@@ -104,4 +119,6 @@ app.get('/api/registrations/mobile/:mobile', async (req, res) => {
   }
 });
 
+// Server Start (Hamesha sabse niche)
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend Server running on port ${PORT}`));

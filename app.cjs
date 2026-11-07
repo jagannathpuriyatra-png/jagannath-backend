@@ -122,3 +122,6 @@ app.get('/api/registrations/mobile/:mobile', async (req, res) => {
 // Server Start (Hamesha sabse niche)
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend Server running on port ${PORT}`));
+
+  paymentStatus: { type: String, default: "Pending" },
+  totalPaid: { type: Number, default: 0 }, // Naya field add kiya

@@ -125,6 +125,51 @@ app.get('/api/registrations/mobile/:mobile', async (req, res) => {
   }
 });
 
+// 7. YouPI Payment Checkout URL lene ke liye
+app.post('/api/payments/create-checkout/:id', async (req, res) => {
+  try {
+    // 1. Registration data lo
+    const reg = await Registration.findById(req.params.id);
+    if (!reg) return res.status(404).json({ message: "Registration nahi mili" });
+
+    const amountToPay = reg.count * 2500; // Token amount (₹2500 per yatri)
+
+    // 2. YouPI-PG Server ko API call karo (Ye server localhost:6100 par chal raha hai)
+    // Tumhe apni YouPI merchant API key .env mein YOUPI_API_KEY naam se dalni hogi
+    const youpiResponse = await fetch('http://localhost:6100/api/v1/sessions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.YOUPI_API_KEY}`
+      },
+      body: JSON.stringify({
+        amount: amountToPay * 100, // Amount paise mein (2500 * 100 = 250000)
+        currency: 'INR',
+        method: 'MANUAL_UPI',
+        customer: {
+          name: reg.name,
+          phone: reg.mobile
+        },
+        reference: reg._id
+      })
+    });
+
+    const youpiData = await youpiResponse.json();
+    
+    // 3. Checkout URL frontend ko bhej do
+    if (youpiData.checkout_url) {
+      res.json({ checkoutUrl: youpiData.checkout_url });
+    } else {
+      console.log("YouPI Error:", youpiData);
+      res.status(500).json({ error: "YouPI Payment session nahi bani" });
+    }
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Payment server error" });
+  }
+});
+
 // Server Start (Hamesha sabse niche)
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend Server running on port ${PORT}`));

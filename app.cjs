@@ -37,8 +37,9 @@ const RegistrationSchema = new mongoose.Schema({
   coTravellers: Array,
   paymentStatus: { type: String, default: "Pending" },
   totalPaid: { type: Number, default: 0 },
-  paymentMethod: { type: String, default: "None" }, // Naya field for tracking
-  paymentInitiatedAt: { type: Date, default: null }, // Naya field for timestamp
+  paymentMethod: { type: String, default: "None" },
+  paymentInitiatedAt: { type: Date, default: null },
+  paymentHistory: { type: Array, default: [] }, // Naya field for entries history
   roomNumber: { type: String, default: "Not Allocated" },
   hotelName: { type: String, default: "Not Allocated" },
   createdAt: { type: Date, default: Date.now }
@@ -67,7 +68,7 @@ app.get('/api/registrations', async (req, res) => {
   }
 });
 
-// 3. Payment Update karne ke liye (Sab fields update honge)
+// 3. Payment Update karne ke liye (History push ke sath)
 app.put('/api/registrations/:id', async (req, res) => {
   try {
     const updateData = {};
@@ -76,11 +77,25 @@ app.put('/api/registrations/:id', async (req, res) => {
     if (req.body.paymentMethod !== undefined) updateData.paymentMethod = req.body.paymentMethod;
     if (req.body.paymentInitiatedAt !== undefined) updateData.paymentInitiatedAt = req.body.paymentInitiatedAt;
     
-    const updatedReg = await Registration.findByIdAndUpdate(
-      req.params.id, 
-      { $set: updateData },
-      { new: true }
-    );
+    let updatedReg;
+    // Agar koi naya payment entry hai, to usko history array mein push karo
+    if (req.body.newPaymentEntry) {
+      updatedReg = await Registration.findByIdAndUpdate(
+        req.params.id,
+        { 
+          $set: updateData,
+          $push: { paymentHistory: req.body.newPaymentEntry }
+        },
+        { new: true }
+      );
+    } else {
+      updatedReg = await Registration.findByIdAndUpdate(
+        req.params.id, 
+        { $set: updateData },
+        { new: true }
+      );
+    }
+
     if (!updatedReg) return res.status(404).json({ message: "Registration nahi mili" });
     res.json(updatedReg);
   } catch (error) {

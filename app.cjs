@@ -36,7 +36,9 @@ const RegistrationSchema = new mongoose.Schema({
   count: Number,
   coTravellers: Array,
   paymentStatus: { type: String, default: "Pending" },
-  totalPaid: { type: Number, default: 0 }, // Naya field add kiya gaya
+  totalPaid: { type: Number, default: 0 },
+  paymentMethod: { type: String, default: "None" }, // Naya field for tracking
+  paymentInitiatedAt: { type: Date, default: null }, // Naya field for timestamp
   roomNumber: { type: String, default: "Not Allocated" },
   hotelName: { type: String, default: "Not Allocated" },
   createdAt: { type: Date, default: Date.now }
@@ -65,13 +67,14 @@ app.get('/api/registrations', async (req, res) => {
   }
 });
 
-// 3. Payment Update karne ke liye (totalPaid aur paymentStatus dono update honge)
+// 3. Payment Update karne ke liye (Sab fields update honge)
 app.put('/api/registrations/:id', async (req, res) => {
   try {
-    const updateData = { paymentStatus: req.body.paymentStatus };
-    if (req.body.totalPaid !== undefined) {
-      updateData.totalPaid = req.body.totalPaid;
-    }
+    const updateData = {};
+    if (req.body.paymentStatus !== undefined) updateData.paymentStatus = req.body.paymentStatus;
+    if (req.body.totalPaid !== undefined) updateData.totalPaid = req.body.totalPaid;
+    if (req.body.paymentMethod !== undefined) updateData.paymentMethod = req.body.paymentMethod;
+    if (req.body.paymentInitiatedAt !== undefined) updateData.paymentInitiatedAt = req.body.paymentInitiatedAt;
     
     const updatedReg = await Registration.findByIdAndUpdate(
       req.params.id, 
@@ -125,17 +128,14 @@ app.get('/api/registrations/mobile/:mobile', async (req, res) => {
   }
 });
 
-// 7. YouPI Payment Checkout URL lene ke liye
+// 7. YouPI Payment Checkout URL lene ke liye (Future ke liye rakha gaya hai)
 app.post('/api/payments/create-checkout/:id', async (req, res) => {
   try {
-    // 1. Registration data lo
     const reg = await Registration.findById(req.params.id);
     if (!reg) return res.status(404).json({ message: "Registration nahi mili" });
 
-    const amountToPay = reg.count * 2500; // Token amount (₹2500 per yatri)
+    const amountToPay = reg.count * 2500;
 
-    // 2. YouPI-PG Server ko API call karo (Ye server localhost:6100 par chal raha hai)
-    // Tumhe apni YouPI merchant API key .env mein YOUPI_API_KEY naam se dalni hogi
     const youpiResponse = await fetch('http://localhost:6100/api/v1/sessions', {
       method: 'POST',
       headers: {
@@ -143,27 +143,21 @@ app.post('/api/payments/create-checkout/:id', async (req, res) => {
         'Authorization': `Bearer ${process.env.YOUPI_API_KEY}`
       },
       body: JSON.stringify({
-        amount: amountToPay * 100, // Amount paise mein (2500 * 100 = 250000)
+        amount: amountToPay * 100,
         currency: 'INR',
         method: 'MANUAL_UPI',
-        customer: {
-          name: reg.name,
-          phone: reg.mobile
-        },
+        customer: { name: reg.name, phone: reg.mobile },
         reference: reg._id
       })
     });
 
     const youpiData = await youpiResponse.json();
     
-    // 3. Checkout URL frontend ko bhej do
     if (youpiData.checkout_url) {
       res.json({ checkoutUrl: youpiData.checkout_url });
     } else {
-      console.log("YouPI Error:", youpiData);
       res.status(500).json({ error: "YouPI Payment session nahi bani" });
     }
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Payment server error" });

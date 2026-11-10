@@ -35,6 +35,7 @@ const RegistrationSchema = new mongoose.Schema({
   emergencyPhone: String,
   count: Number,
   coTravellers: Array,
+  verificationStatus: { type: String, default: "Pending" }, // Naya permanent field for Verification
   paymentStatus: { type: String, default: "Pending" },
   totalPaid: { type: Number, default: 0 },
   paymentMethod: { type: String, default: "None" },
@@ -68,10 +69,12 @@ app.get('/api/registrations', async (req, res) => {
   }
 });
 
-// 3. Payment Update karne ke liye (History push ke sath)
+// 3. Payment & Verification Update karne ke liye (History push ke sath)
 app.put('/api/registrations/:id', async (req, res) => {
   try {
     const updateData = {};
+    // Ye dono alag-alag update honge, ek dusre ko overwrite nahi karenge
+    if (req.body.verificationStatus !== undefined) updateData.verificationStatus = req.body.verificationStatus;
     if (req.body.paymentStatus !== undefined) updateData.paymentStatus = req.body.paymentStatus;
     if (req.body.totalPaid !== undefined) updateData.totalPaid = req.body.totalPaid;
     if (req.body.paymentMethod !== undefined) updateData.paymentMethod = req.body.paymentMethod;
